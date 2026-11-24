@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ATS TalentScan</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>ATS TalentScan | Nicholas Hidalgo</title>
+  <meta name="description" content="AI-powered resume analyzer. Compare a resume against a job description with keyword and semantic analysis. Built by Nicholas Hidalgo.">
   <!-- pdf.js for PDF parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
   <script>
@@ -15,189 +15,413 @@
   <!-- jsPDF and autotable for PDF export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-  <!-- Typography -->
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <!-- Typography: same stacks as nicholashidalgo.com -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;900&family=Inter+Tight:wght@900&display=swap" rel="stylesheet">
   <style>
+    /* ---- Design tokens (mirrors nicholashidalgo.com) ---- */
+    :root {
+      --font-sans: "Inter", "SF Pro Text", "Helvetica Neue", "Arial", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-display: "Arial Narrow", "Roboto Condensed", "Inter Tight", "Helvetica Neue Condensed", "Arial", sans-serif;
+      --font-mono: "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", ui-monospace, monospace;
+
+      --bg-base: #0d0f12;
+      --bg-surface: rgba(20, 22, 28, 0.85);
+      --bg-elevated: rgba(28, 30, 38, 0.95);
+      --ink: #e8ecf0;
+      --ink-secondary: rgba(232, 236, 240, 0.55);
+      --ink-tertiary: rgba(232, 236, 240, 0.30);
+      --border: rgba(232, 236, 240, 0.08);
+      --border-strong: rgba(232, 236, 240, 0.20);
+
+      --paper: #ffffff;
+      --paper-ink: #111111;
+      --paper-ink-secondary: #4b5563;
+      --paper-ink-tertiary: #9ca3af;
+
+      --ease-expo: cubic-bezier(.16, 1, .3, 1);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
-      font-family: 'Space Grotesk', sans-serif;
-      background:
-        radial-gradient(1200px 800px at 20% 15%, #0b1440 0%, transparent 60%),
-        radial-gradient(1200px 800px at 80% 85%, #2a0f5d 0%, transparent 60%),
-        linear-gradient(135deg, #0a0f2c, #1a1448 50%, #3b2070);
-      background-attachment: fixed;
-      color: #e5e7eb;
-      position: relative;
+      margin: 0;
+      font-family: var(--font-sans);
+      background: var(--bg-base);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
     }
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
-      background-size: 26px 26px;
-      mix-blend-mode: soft-light;
-      pointer-events: none;
+    h1, h2, h3 { margin: 0; }
+    pre, code { font-family: var(--font-mono); }
+
+    /* ---- Type scale ---- */
+    .eyebrow {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase;
+      color: var(--ink-secondary);
     }
-    #neural-bg {
-      position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1;
-      filter: drop-shadow(0 0 6px rgba(0,255,255,0.35));
+    .display {
+      font-family: var(--font-display); font-weight: 900; text-transform: uppercase;
+      letter-spacing: 0.06em; line-height: 1.1;
     }
-    .neural-panel {
-      border: 1px solid rgba(0, 255, 255, 0.25);
-      background: rgba(17, 24, 39, 0.55);
-      backdrop-filter: blur(12px);
-      box-shadow: 0 0 12px rgba(0, 255, 255, 0.15);
-      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    .section-title {
+      font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em;
+      font-size: clamp(22px, 3.2vw, 36px); line-height: 1.15;
     }
-    .neural-panel:hover { transform: translateY(-4px); box-shadow: 0 0 20px rgba(0, 255, 255, 0.35); }
-    .glowing-border { border: 2px solid transparent; transition: border-color .3s, box-shadow .3s, transform .2s; }
-    .glowing-border:focus-within { border-color: #00f0ff; box-shadow: 0 0 14px rgba(0,240,255,0.6); transform: translateY(-1px); }
-    .button-ripple { position: relative; overflow: hidden; }
-    .button-ripple::after {
-      content: ""; position: absolute; border-radius: 50%; width: 120px; height: 120px;
-      background: rgba(255,255,255,0.25); transform: scale(0); opacity: 0; pointer-events: none;
-      left: 50%; top: 50%; translate: -50% -50%;
+    .panel-title {
+      font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em; font-size: 12px;
     }
-    .button-ripple:active::after { transform: scale(4); opacity: 1; transition: transform .6s, opacity .9s; }
-    h1,h2,h3 { font-family: 'Space Grotesk', sans-serif; }
-    pre, code { font-family: 'JetBrains Mono', monospace; }
-    .progress-ring__circle {
-      transition: stroke-dashoffset 0.8s ease-out;
-      transform: rotate(-90deg);
-      transform-origin: 50% 50%;
+    .label {
+      font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--ink-secondary);
     }
+
+    /* ---- Buttons ---- */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      font-family: var(--font-sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.15em; text-transform: uppercase; text-decoration: none;
+      padding: 14px 28px; border-radius: 0; cursor: pointer; white-space: nowrap;
+      transition: background .3s ease, color .3s ease, border-color .3s ease, opacity .3s ease;
+    }
+    .btn-primary { background: #fff; color: #000; border: 1px solid #fff; }
+    .btn-primary:hover { background: #e5e7eb; border-color: #e5e7eb; }
+    .btn-outline { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.6); }
+    .btn-outline:hover { border-color: #fff; background: rgba(255,255,255,0.06); }
+    .btn-ghost { background: transparent; color: var(--ink-secondary); border: 1px solid transparent; padding: 14px 18px; }
+    .btn-ghost:hover { color: #fff; }
+    .btn-sm { padding: 10px 18px; font-size: 10px; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    /* Paper (light section) variants */
+    .on-paper .btn-primary { background: #000; color: #fff; border-color: #000; }
+    .on-paper .btn-primary:hover { background: #222; }
+    .on-paper .btn-outline { color: #000; border-color: rgba(0,0,0,0.5); }
+    .on-paper .btn-outline:hover { border-color: #000; background: rgba(0,0,0,0.04); }
+
+    /* ---- Nav ---- */
+    .site-nav {
+      position: fixed; top: 0; left: 0; width: 100%; z-index: 40; padding: 20px 0;
+      background: rgba(0,0,0,0.65); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .site-nav .wrap { max-width: 1200px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 32px); display: flex; justify-content: space-between; align-items: center; }
+    .logo { display: flex; flex-direction: column; line-height: 1; text-decoration: none; }
+    .logo span { font-size: clamp(14px, 2vw, 18px); letter-spacing: 0.15em; text-transform: uppercase; transition: color .3s ease; }
+    .logo .first { font-weight: 900; color: #fff; }
+    .logo .last { font-weight: 300; color: #9ca3af; }
+    .logo:hover .last { color: #fff; }
+    .nav-links { display: flex; align-items: center; gap: clamp(20px, 3vw, 40px); }
+    .nav-links a {
+      font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
+      color: rgba(200,200,200,0.75); text-decoration: none; transition: color .3s ease;
+    }
+    .nav-links a:hover { color: #fff; }
+    .nav-links svg { width: 18px; height: 18px; fill: currentColor; display: block; }
+    @media (max-width: 640px) { .nav-links .hide-sm { display: none; } }
+
+    /* ---- Hero ---- */
+    .hero {
+      position: relative; min-height: 88vh; display: flex; align-items: center; justify-content: center;
+      text-align: center; padding: 140px 24px 96px; overflow: hidden;
+      background-image: url(https://images.unsplash.com/photo-1517976487492-5750f3195933?q=80&w=2070&auto=format&fit=crop);
+      background-size: cover; background-position: center;
+    }
+    .hero::before { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0.72); }
+    .hero::after { content: ""; position: absolute; inset: auto 0 0 0; height: 160px; background: linear-gradient(to bottom, transparent, var(--bg-base)); }
+    .hero .inner { position: relative; z-index: 1; max-width: 880px; margin: 0 auto; }
+    .hero h1 {
+      font-size: clamp(32px, 6vw, 72px); color: #fff; margin-bottom: 24px;
+      text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .hero .tagline {
+      font-weight: 700; font-size: clamp(12px, 1.4vw, 16px); letter-spacing: 0.2em; text-transform: uppercase; color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+    .hero .rule { width: 64px; height: 1px; background: rgba(255,255,255,0.6); margin: 24px auto; }
+    .hero .kicker {
+      font-weight: 700; font-size: clamp(10px, 1.2vw, 14px); letter-spacing: 0.3em; text-transform: uppercase; color: #f3f4f6;
+    }
+    .hero .lede {
+      font-size: clamp(14px, 1.4vw, 16px); line-height: 1.75; color: rgba(229,231,235,0.9); margin: 28px auto 0; max-width: 680px;
+    }
+    .hero .actions { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 40px; }
+    .hero .footnote { margin-top: 40px; font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(209,213,219,0.7); }
+
+    /* ---- Sections ---- */
+    .section { padding: 96px 24px; }
+    .wrap-lg { max-width: 1200px; margin: 0 auto; }
+    .on-paper { background: var(--paper); color: var(--paper-ink); }
+    .on-paper .eyebrow { color: var(--paper-ink-tertiary); }
+    .on-paper .section-title { color: var(--paper-ink); }
+    .feature { border-left: 2px solid #000; padding-left: 24px; }
+    .feature h3 { font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; font-size: 15px; margin-bottom: 12px; color: #000; }
+    .feature p { color: var(--paper-ink-secondary); font-size: 14px; line-height: 1.7; margin: 0; }
+    .feature .num { font-family: var(--font-mono); font-size: 11px; color: var(--paper-ink-tertiary); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+    /* ---- Panels (the JS renders results into .neural-panel; redefined here) ---- */
+    .neural-panel, .panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 0;
+      box-shadow: none;
+      transition: border-color .3s ease;
+    }
+    .neural-panel:hover, .panel:hover { border-color: var(--border-strong); transform: none; box-shadow: none; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+
+    /* ---- Inputs ---- */
+    .field { background: #000; border: 1px solid var(--border-strong); transition: border-color .3s ease; }
+    .field:focus-within { border-color: #fff; }
+    textarea {
+      width: 100%; background: transparent; color: var(--ink); border: 0; outline: 0; resize: vertical;
+      font-family: var(--font-sans); font-size: 14px; line-height: 1.6; padding: 16px;
+    }
+    textarea::placeholder { color: var(--ink-tertiary); }
+    .glowing-border { border: 0; box-shadow: none; }
+    .glowing-border:focus-within { border: 0; box-shadow: none; transform: none; }
+    .button-ripple { position: relative; }
+
+    /* Radio as segmented control */
+    .mode { display: inline-flex; border: 1px solid var(--border-strong); }
+    .mode label { cursor: pointer; position: relative; }
+    .mode input { position: absolute; opacity: 0; pointer-events: none; }
+    .mode span {
+      display: block; padding: 10px 18px; font-size: 10px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--ink-secondary); transition: background .2s ease, color .2s ease;
+    }
+    .mode input:checked + span { background: #fff; color: #000; }
+    .mode label + label span { border-left: 1px solid var(--border-strong); }
+
+    /* ---- Results overrides for Tailwind classes used in renderResults ---- */
+    .progress-ring__circle { transition: stroke-dashoffset 0.8s ease-out; transform: rotate(-90deg); transform-origin: 50% 50%; }
+    #results-container h2 { font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; font-size: 20px; }
+    #results-container h3 { font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em; font-size: 12px; color: var(--ink-secondary); }
+    #results-container table thead { background: rgba(255,255,255,0.04); letter-spacing: 0.1em; }
+    #results-container table tbody tr { border-color: var(--border); }
+    #results-container details summary { font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em; font-size: 12px; list-style: none; }
+    #results-container details summary::-webkit-details-marker { display: none; }
+    #results-container details summary::before { content: "+ "; color: var(--ink-tertiary); }
+    #results-container details[open] summary::before { content: "− "; }
+    #results-container pre { background: #000; border: 1px solid var(--border); color: #a7f3d0; }
+    .rounded-full { border-radius: 999px; }
+    .text-white { color: #fff; }
+    .text-gray-700 { color: rgba(255,255,255,0.12); }
+    .bg-gray-700 { background: rgba(255,255,255,0.10); }
+
+    /* ---- Loading ---- */
+    .spinner { width: 36px; height: 36px; border: 1px solid rgba(255,255,255,0.15); border-top-color: #fff; border-radius: 50%; animation: spin .9s linear infinite; margin: 0 auto; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- Footer ---- */
+    .site-footer { border-top: 1px solid var(--border); padding: 56px 24px; }
+    .site-footer .wrap { max-width: 1200px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-between; }
+    .site-footer .links { display: flex; gap: 28px; }
+    .site-footer .links a { color: #fff; font-size: 14px; letter-spacing: 0.03em; text-decoration: none; opacity: .8; transition: opacity .3s ease; }
+    .site-footer .links a:hover { opacity: 1; }
+    .site-footer .copy { font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--ink-tertiary); }
+
+
+    /* ---- Minimal utilities (replaces the Tailwind CDN; only what the markup and renderResults use) ---- */
+    .grid { display: grid; } .grid-cols-1 { grid-template-columns: 1fr; }
+    @media (min-width: 768px) { .md\:grid-cols-2 { grid-template-columns: 1fr 1fr; } .md\:grid-cols-3 { grid-template-columns: repeat(3, 1fr); } .md\:p-8 { padding: 32px; } }
+    @media (min-width: 1024px) { .lg\:grid-cols-2 { grid-template-columns: 1fr 1fr; } }
+    .gap-2 { gap: 8px; } .gap-4 { gap: 16px; } .gap-6 { gap: 24px; } .gap-8 { gap: 32px; } .gap-12 { gap: 48px; }
+    .flex { display: flex; } .inline-block { display: inline-block; } .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; } .justify-center { justify-content: center; } .flex-wrap { flex-wrap: wrap; }
+    .relative { position: relative; } .absolute { position: absolute; }
+    .top-1\/2 { top: 50%; } .left-1\/2 { left: 50%; }
+    .-translate-x-1\/2.-translate-y-1\/2 { transform: translate(-50%, -50%); }
+    .transform.-rotate-90 { transform: rotate(-90deg); }
+    .p-3 { padding: 12px; } .p-4 { padding: 16px; } .p-6 { padding: 24px; } .px-4 { padding-left: 16px; padding-right: 16px; } .py-3 { padding-top: 12px; padding-bottom: 12px; }
+    .pt-4 { padding-top: 16px; } .pt-6 { padding-top: 24px; }
+    .mb-1 { margin-bottom: 4px; } .mb-3 { margin-bottom: 12px; } .mb-4 { margin-bottom: 16px; } .mb-6 { margin-bottom: 24px; } .mb-8 { margin-bottom: 32px; }
+    .mt-2 { margin-top: 8px; } .mt-3 { margin-top: 12px; } .mt-4 { margin-top: 16px; }
+    .space-y-2 > * + * { margin-top: 8px; } .space-y-3 > * + * { margin-top: 12px; }
+    .w-full { width: 100%; } .w-40 { width: 160px; } .h-40 { height: 160px; } .h-2\.5 { height: 10px; }
+    .text-center { text-align: center; } .text-left { text-align: left; }
+    .text-xs { font-size: 12px; } .text-sm { font-size: 13px; } .text-base { font-size: 14px; } .text-lg { font-size: 16px; }
+    .text-2xl { font-size: 22px; } .text-4xl { font-size: 36px; }
+    .font-medium { font-weight: 500; } .font-semibold { font-weight: 600; } .font-bold { font-weight: 700; } .italic { font-style: italic; }
+    .uppercase { text-transform: uppercase; } .whitespace-pre-wrap { white-space: pre-wrap; } .overflow-x-auto { overflow-x: auto; }
+    .cursor-pointer { cursor: pointer; } .list-disc { list-style: disc; } .list-inside { list-style-position: inside; }
+    .border-b { border-bottom: 1px solid var(--border); } .border-t { border-top: 1px solid var(--border); }
+    .text-gray-300 { color: var(--ink); } .text-gray-400 { color: var(--ink-secondary); }
+    .text-green-400, .text-green-300 { color: #4ade80; } .text-yellow-400, .text-yellow-300 { color: #facc15; }
+    .text-orange-400 { color: #fb923c; } .text-red-400, .text-red-300 { color: #f87171; }
+    .stroke-green-500 { stroke: #22c55e; } .stroke-yellow-500 { stroke: #eab308; } .stroke-orange-500 { stroke: #f97316; } .stroke-red-500 { stroke: #ef4444; }
+    .bg-green-500 { background: #22c55e; } .bg-yellow-500 { background: #eab308; } .bg-orange-500 { background: #f97316; } .bg-red-500 { background: #ef4444; }
+    table { border-collapse: collapse; width: 100%; } th { font-weight: 500; }
+    ul { margin: 0; padding: 0; } li { font-size: 14px; line-height: 1.6; }
+    #results-container ul:not(.list-disc) { list-style: none; }
+    #main-content { align-items: start; }
+    .hidden { display: none !important; }
     select { appearance: none; }
   </style>
 </head>
-<body class="text-gray-200">
-  <!-- Neural network canvas -->
-  <canvas id="neural-bg"></canvas>
+<body>
 
-  <div class="container mx-auto p-4 md:p-8">
-    <!-- Header -->
-    <header class="text-center mb-8">
-      <h1 class="text-5xl font-extrabold bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">
-        ATS TalentScan
-      </h1>
-      <p class="text-gray-300 mt-3 text-lg italic">AI-Powered Resume Analyzer — by N. Hidalgo</p>
-      <a href="#main-content" class="button-ripple mt-4 inline-block bg-gradient-to-r from-cyan-500 to-violet-600 text-white font-semibold py-2 px-6 rounded-lg shadow hover:opacity-90 transition">
-        Try It Now
+  <!-- Nav -->
+  <nav class="site-nav">
+    <div class="wrap">
+      <a class="logo" href="https://nicholashidalgo.com" aria-label="Nicholas Hidalgo">
+        <span class="first">Nicholas</span>
+        <span class="last">Hidalgo</span>
       </a>
-    </header>
-
-    <!-- Feature strip -->
-    <section class="mt-6">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="neural-panel rounded-xl p-4 text-center">
-          <div class="text-cyan-300 mb-2 text-2xl">🔍</div>
-          <h3 class="text-white font-semibold">Analysis Modes</h3>
-          <p class="text-gray-300 text-sm">Keyword and Semantic analysis, selectable per run.</p>
-        </div>
-        <div class="neural-panel rounded-xl p-4 text-center">
-          <div class="text-cyan-300 mb-2 text-2xl">📊</div>
-          <h3 class="text-white font-semibold">Actionable Report</h3>
-          <p class="text-gray-300 text-sm">Overall match score, sub-scores, recommendations, strengths & gaps.</p>
-        </div>
-        <div class="neural-panel rounded-xl p-4 text-center">
-          <div class="text-cyan-300 mb-2 text-2xl">📤</div>
-          <h3 class="text-white font-semibold">Export & Share</h3>
-          <p class="text-gray-300 text-sm">Export PDF, copy raw JSON, feed into an LLM for guided resume edits.</p>
-        </div>
+      <div class="nav-links">
+        <a class="hide-sm" href="https://nicholashidalgo.com">Home</a>
+        <a class="hide-sm" href="https://nicholashidalgo.com/#projects">Projects</a>
+        <a href="#tool">Scanner</a>
+        <a href="https://github.com/nicholashidalgo/ATS-Scanner-App" target="_blank" rel="noreferrer" aria-label="GitHub">
+          <svg viewBox="0 0 24 24"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.79 0c2.21-1.49 3.18-1.18 3.18-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+        </a>
       </div>
-    </section>
+    </div>
+  </nav>
 
-    <!-- Main content -->
-    <div id="main-content" class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-      <!-- Inputs -->
-      <div class="neural-panel p-6 rounded-2xl shadow-lg">
-        <h2 class="text-2xl font-semibold mb-4 text-white border-b border-gray-700 pb-2">Inputs</h2>
-
-        <!-- Resume -->
-        <div class="mb-6">
-          <label for="resume-input" class="block text-lg font-medium mb-2">📄 Resume</label>
-          <div class="glowing-border bg-gray-900 rounded-lg">
-            <textarea id="resume-input" rows="10" class="w-full bg-transparent p-3 rounded-lg focus:outline-none resize-y" placeholder="Paste resume text here or upload a file..."></textarea>
-          </div>
-          <div class="mt-3 text-right">
-            <input type="file" id="resume-upload" class="hidden" accept=".pdf,.doc,.docx,.txt" onchange="handleFileUpload(event, 'resume-input')">
-            <button onclick="document.getElementById('resume-upload').click()" class="button-ripple bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Upload Resume</button>
-          </div>
-        </div>
-
-        <!-- Job Description -->
-        <div class="mb-6">
-          <label for="jd-input" class="block text-lg font-medium mb-2">📑 Job Description</label>
-          <div class="glowing-border bg-gray-900 rounded-lg">
-            <textarea id="jd-input" rows="10" class="w-full bg-transparent p-3 rounded-lg focus:outline-none resize-y" placeholder="Paste job description here or upload a file..."></textarea>
-          </div>
-          <div class="mt-3 text-right">
-            <input type="file" id="jd-upload" class="hidden" accept=".pdf,.doc,.docx,.txt" onchange="handleFileUpload(event, 'jd-input')">
-            <button onclick="document.getElementById('jd-upload').click()" class="button-ripple bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Upload JD</button>
-          </div>
-        </div>
-
-        <!-- Controls -->
-        <div class="flex items-center justify-between mt-6 flex-wrap gap-4">
-          <div class="flex items-center space-x-4">
-            <span class="text-lg font-medium">Analysis Mode:</span>
-            <div class="flex items-center space-x-3">
-              <label class="flex items-center cursor-pointer">
-                <input type="radio" name="analysis-mode" value="keyword" class="form-radio h-5 w-5 text-blue-600 bg-gray-700 border-gray-600 focus:ring-blue-500" checked>
-                <span class="ml-2 text-gray-200">Keyword</span>
-              </label>
-              <label class="flex items-center cursor-pointer">
-                <input type="radio" name="analysis-mode" value="semantic" class="form-radio h-5 w-5 text-blue-600 bg-gray-700 border-gray-600 focus:ring-blue-500">
-                <span class="ml-2 text-gray-200">Semantic</span>
-              </label>
-            </div>
-          </div>
-          <div class="flex gap-4">
-            <button id="clear-btn" class="button-ripple bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg">Clear All</button>
-            <button id="scan-btn" class="button-ripple bg-gradient-to-r from-green-500 to-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md">Analyze</button>
-          </div>
-        </div>
+  <!-- Hero -->
+  <header class="hero">
+    <div class="inner">
+      <h1 class="display">ATS<br>TalentScan</h1>
+      <p class="tagline">Resume versus job description, scored the way an ATS would read it.</p>
+      <div class="rule"></div>
+      <p class="kicker">Keyword match, semantic match, gap analysis</p>
+      <p class="lede">
+        Paste or upload a resume and a job description. The scanner returns an overall match score, five sub-scores,
+        a requirement-by-requirement evidence table, and the edits that move the number. Nothing is stored.
+      </p>
+      <div class="actions">
+        <a href="#tool" class="btn btn-primary">Run a scan</a>
+        <a href="https://github.com/nicholashidalgo/ATS-Scanner-App" target="_blank" rel="noreferrer" class="btn btn-outline">View source</a>
       </div>
+      <p class="footnote">Built by Nicholas Hidalgo · Boston, MA</p>
+    </div>
+  </header>
 
-      <!-- Results -->
-      <div id="results-container" class="neural-panel p-6 rounded-2xl shadow-lg hidden"></div>
-
-      <!-- Initial state -->
-      <div id="initial-state" class="neural-panel p-6 rounded-2xl shadow-lg">
-        <div class="text-center text-gray-300">
-          <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 .293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          <h3 class="text-2xl font-semibold text-white">Analysis Results Will Appear Here</h3>
-          <p class="mt-2">Provide a resume and job description, then click “Analyze”.</p>
+  <!-- Features (paper section, mirrors the site's writing grid) -->
+  <section class="section on-paper">
+    <div class="wrap-lg">
+      <p class="eyebrow" style="margin-bottom:16px">What you get</p>
+      <h2 class="section-title" style="margin-bottom:56px">Three outputs,<br>one pass</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+        <div class="feature">
+          <div class="num">01</div>
+          <h3>Analysis modes</h3>
+          <p>Keyword mode counts exact-term coverage the way a legacy parser does. Semantic mode uses embeddings to credit equivalent phrasing. Pick one per run and compare.</p>
         </div>
-      </div>
-
-      <!-- Loading state -->
-      <div id="loading-state" class="hidden neural-panel p-6 rounded-2xl shadow-lg">
-        <div class="text-center text-gray-300">
-          <svg class="animate-spin h-12 w-12 text-cyan-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <p class="text-xl font-semibold mt-4">Analyzing...</p>
-          <p class="text-gray-400">This may take a moment.</p>
+        <div class="feature">
+          <div class="num">02</div>
+          <h3>Actionable report</h3>
+          <p>Overall match score, sub-scores for skills, responsibilities, tooling, credentials, and ATS readability, plus ranked recommendations, strengths, and gaps.</p>
+        </div>
+        <div class="feature">
+          <div class="num">03</div>
+          <h3>Export and share</h3>
+          <p>Download the report as a PDF, copy the raw JSON, or hand the JSON to an LLM for guided resume edits against the specific gaps found.</p>
         </div>
       </div>
     </div>
+  </section>
 
-    <!-- Footer -->
-    <footer class="neural-panel mt-12 p-8 rounded-2xl text-center">
-      <h3 class="text-2xl font-bold text-white mb-2">Ready to Analyze?</h3>
-      <p class="text-gray-300 mb-6">
-        Upload your resume and job description, then click
-        <span class="font-semibold text-cyan-300">Analyze</span>
-        to get your compatibility report.
-      </p>
-      <p class="text-sm text-gray-400">© 2024 <span class="font-semibold">ATS TalentScan</span> • Built by Nicholas Hidalgo</p>
-    </footer>
-  </div>
+  <!-- Tool -->
+  <section id="tool" class="section">
+    <div class="wrap-lg">
+      <p class="eyebrow" style="margin-bottom:16px">Scanner</p>
+      <h2 class="section-title" style="margin-bottom:48px">Run the analysis</h2>
+
+      <div id="main-content" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Inputs -->
+        <div class="panel p-6 md:p-8">
+          <div class="panel-head">
+            <h2 class="panel-title">Inputs</h2>
+            <span class="label">All processing stays in your session</span>
+          </div>
+
+          <!-- Resume -->
+          <div class="mb-8">
+            <div class="flex items-center justify-between mb-3">
+              <label for="resume-input" class="label">Resume</label>
+              <input type="file" id="resume-upload" class="hidden" accept=".pdf,.doc,.docx,.txt" onchange="handleFileUpload(event, 'resume-input')">
+              <button onclick="document.getElementById('resume-upload').click()" class="btn btn-outline btn-sm">Upload resume</button>
+            </div>
+            <div class="glowing-border field">
+              <textarea id="resume-input" rows="10" placeholder="Paste resume text here or upload a .pdf, .docx, or .txt file"></textarea>
+            </div>
+          </div>
+
+          <!-- Job Description -->
+          <div class="mb-8">
+            <div class="flex items-center justify-between mb-3">
+              <label for="jd-input" class="label">Job description</label>
+              <input type="file" id="jd-upload" class="hidden" accept=".pdf,.doc,.docx,.txt" onchange="handleFileUpload(event, 'jd-input')">
+              <button onclick="document.getElementById('jd-upload').click()" class="btn btn-outline btn-sm">Upload JD</button>
+            </div>
+            <div class="glowing-border field">
+              <textarea id="jd-input" rows="10" placeholder="Paste the job description here or upload a file"></textarea>
+            </div>
+          </div>
+
+          <!-- Controls -->
+          <div class="flex items-center justify-between flex-wrap gap-4 pt-6" style="border-top:1px solid var(--border)">
+            <div class="flex items-center gap-4">
+              <span class="label">Mode</span>
+              <div class="mode">
+                <label>
+                  <input type="radio" name="analysis-mode" value="keyword" checked>
+                  <span>Keyword</span>
+                </label>
+                <label>
+                  <input type="radio" name="analysis-mode" value="semantic">
+                  <span>Semantic</span>
+                </label>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button id="clear-btn" class="btn btn-ghost">Clear</button>
+              <button id="scan-btn" class="btn btn-primary">Analyze</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div id="results-container" class="panel p-6 md:p-8 hidden"></div>
+
+        <!-- Initial state -->
+        <div id="initial-state" class="panel p-6 md:p-8 flex items-center justify-center" style="min-height:420px">
+          <div class="text-center" style="max-width:360px">
+            <p class="eyebrow" style="margin-bottom:20px">Report</p>
+            <h3 class="section-title" style="font-size:22px;margin-bottom:16px">Results appear here</h3>
+            <p style="color:var(--ink-secondary);font-size:14px;line-height:1.7;margin:0">Provide a resume and a job description, choose a mode, then click Analyze.</p>
+          </div>
+        </div>
+
+        <!-- Loading state -->
+        <div id="loading-state" class="hidden panel p-6 md:p-8 flex items-center justify-center" style="min-height:420px">
+          <div class="text-center">
+            <div class="spinner"></div>
+            <p class="panel-title" style="margin-top:24px">Analyzing</p>
+            <p style="color:var(--ink-secondary);font-size:13px;margin-top:8px">Semantic mode can take a few seconds.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="wrap">
+      <a class="logo" href="https://nicholashidalgo.com" aria-label="Nicholas Hidalgo">
+        <span class="first">Nicholas</span>
+        <span class="last">Hidalgo</span>
+      </a>
+      <div class="links">
+        <a href="https://www.linkedin.com/in/nicholashidalgo" target="_blank" rel="noreferrer">LinkedIn</a>
+        <a href="https://github.com/nicholashidalgo" target="_blank" rel="noreferrer">GitHub</a>
+        <a href="https://nicholashidalgo.com" target="_blank" rel="noreferrer">Website</a>
+      </div>
+      <p class="copy">© 2026 ATS TalentScan · Built by Nicholas Hidalgo</p>
+    </div>
+  </footer>
 
   <!-- Logic -->
   <script>
@@ -393,12 +617,12 @@
       const offset = circumference - (percentage / 100) * circumference;
 
       const resultsHTML = `
-        <div class="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
-          <h2 class="text-3xl font-bold text-white">Analysis Report</h2>
-          <div><button id="export-pdf-btn" class="button-ripple bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Export PDF</button></div>
+        <div class="panel-head">
+          <h2 class="text-white">Analysis Report</h2>
+          <div><button id="export-pdf-btn" class="btn btn-outline btn-sm">Export PDF</button></div>
         </div>
 
-        <div class="neural-panel p-6 rounded-xl mb-6 text-center">
+        <div class="neural-panel p-6 mb-6 text-center">
           <h3 class="text-xl font-semibold mb-4 text-white">Overall Match Score</h3>
           <div class="relative inline-block">
             <svg class="w-40 h-40 transform -rotate-90">
@@ -416,7 +640,7 @@
           <p class="text-gray-400 text-sm">Mode: ${data.metadata.analysis_mode}</p>
         </div>
 
-        <div class="neural-panel p-6 rounded-xl mb-6">
+        <div class="neural-panel p-6 mb-6">
           <h3 class="text-xl font-semibold mb-4 text-white">Sub-Score Breakdown</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             ${Object.entries(data.sub_scores || {}).map(([key, value]) => `
@@ -434,13 +658,13 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div class="neural-panel p-6 rounded-xl">
+          <div class="neural-panel p-6">
             <h3 class="text-xl font-semibold mb-4 text-white">Strengths</h3>
             <ul class="list-disc list-inside space-y-2 text-green-300">
               ${(data.strengths || []).map(s => `<li>${s}</li>`).join('')}
             </ul>
           </div>
-          <div class="neural-panel p-6 rounded-xl">
+          <div class="neural-panel p-6">
             <h3 class="text-xl font-semibold mb-4 text-white">Potential Gaps</h3>
             <ul class="list-disc list-inside space-y-2 text-red-300">
               ${(data.gaps || []).map(g => `<li>${g}</li>`).join('')}
@@ -448,7 +672,7 @@
           </div>
         </div>
 
-        <div class="neural-panel p-6 rounded-xl mb-6">
+        <div class="neural-panel p-6 mb-6">
           <h3 class="text-xl font-semibold mb-4 text-white">Detailed Alignment Heatmap</h3>
           <div class="overflow-x-auto">
             <table class="w-full text-sm text-left text-gray-300">
@@ -475,11 +699,11 @@
         </div>
 
         ${(data.compliance_flags || []).length > 0 ? `
-          <div class="neural-panel p-6 rounded-xl mb-6">
+          <div class="neural-panel p-6 mb-6">
             <h3 class="text-xl font-semibold mb-4 text-white">ATS Compliance Flags</h3>
             <ul class="space-y-3">
               ${data.compliance_flags.map(flag => `
-                <li class="bg-yellow-900/30 p-3 rounded-lg">
+                <li class="p-3" style="border-left:2px solid #facc15;background:rgba(250,204,21,0.06)">
                   <p class="font-semibold text-yellow-300">${flag.issue}</p>
                   <p class="text-sm text-gray-300"><span class="font-medium">Impact:</span> ${flag.impact}</p>
                   <p class="text-sm text-gray-300"><span class="font-medium">Recommendation:</span> ${flag.recommendation}</p>
@@ -489,12 +713,12 @@
           </div>
         ` : ''}
 
-        <div class="neural-panel p-6 rounded-xl">
+        <div class="neural-panel p-6">
           <details>
             <summary class="cursor-pointer text-lg font-semibold text-white">View Raw JSON Output</summary>
             <div class="pt-4 border-t border-gray-700/60">
-              <pre class="bg-gray-900/70 text-sm text-green-300 p-4 rounded-lg overflow-x-auto whitespace-pre-wrap" id="json-output">${JSON.stringify(data, null, 2)}</pre>
-              <button id="copy-json-btn" class="button-ripple mt-4 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg">Copy JSON</button>
+              <pre class="text-sm p-4 overflow-x-auto whitespace-pre-wrap" id="json-output">${JSON.stringify(data, null, 2)}</pre>
+              <button id="copy-json-btn" class="btn btn-outline btn-sm mt-4">Copy JSON</button>
             </div>
           </details>
         </div>
@@ -573,60 +797,5 @@
       doc.save(`ATS_Report_${new Date().toISOString().split('T')[0]}.pdf`);
     }
   </script>
-
-  <!-- Neural network animation (cyan + violet lines) -->
-  <script>
-    const canvas = document.getElementById('neural-bg');
-    const ctx = canvas.getContext('2d');
-    let nodes = [];
-
-    function resizeCanvas() {
-      if (!canvas) return;
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      nodes = Array.from({ length: 70 }, () => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.4,
-        vy: (Math.random() - 0.5) * 0.4
-      }));
-    }
-
-    function drawNeural() {
-      if (!ctx) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      nodes.forEach(n => {
-        n.x += n.vx; n.y += n.vy;
-        if (n.x < 0 || n.x > canvas.width) n.vx *= -1;
-        if (n.y < 0 || n.y > canvas.height) n.vy *= -1;
-
-        ctx.beginPath(); ctx.arc(n.x, n.y, 2, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(0,255,255,0.85)"; ctx.fill();
-      });
-
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 130) {
-            const alpha = 1 - dist / 130;
-            ctx.lineWidth = 0.7; ctx.strokeStyle = `rgba(0,255,255,${alpha * 0.9})`;
-            ctx.beginPath(); ctx.moveTo(nodes[i].x, nodes[i].y); ctx.lineTo(nodes[j].x, nodes[j].y); ctx.stroke();
-
-            ctx.lineWidth = 0.4; ctx.strokeStyle = `rgba(180, 0, 255, ${alpha * 0.5})`;
-            ctx.beginPath(); ctx.moveTo(nodes[i].x, nodes[i].y); ctx.lineTo(nodes[j].x, nodes[j].y); ctx.stroke();
-          }
-        }
-      }
-
-      requestAnimationFrame(drawNeural);
-    }
-
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-    drawNeural();
-  </script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"9c9b7d6d2f744be6916a8dd1f47e1397","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99992ea6c8608f90',t:'MTc2MjMxMjQ3OQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
